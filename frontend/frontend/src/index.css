@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Light theme (default) ── */
+:root {
+  --c-bg:           #f0ede8;
+  --c-card:         #ffffff;
+  --c-card2:        #f5f3f0;
+  --c-surface:      #eceae6;
+  --c-input:        #e8e5e0;
+  --c-border:       #d4d0cc;
+  --c-text:         #14181c;
+  --c-text2:        #445566;
+  --c-text3:        #7a8fa0;
+  --c-text4:        #aabbc8;
+  --c-green:        #00a830;
+  --c-green2:       #008c28;
+  --c-green-muted:  rgba(0, 168, 48, 0.14);
+  --c-green-ring:   rgba(0, 168, 48, 0.35);
+  --c-blue:         #0088cc;
+}
+
+/* ── Dark theme ── */
+.dark {
+  --c-bg:           #14181c;
+  --c-card:         #1c2028;
+  --c-card2:        #1a1d20;
+  --c-surface:      #252b36;
+  --c-input:        #2c3440;
+  --c-border:       #2c3440;
+  --c-text:         #e8eaed;
+  --c-text2:        #9ab;
+  --c-text3:        #678;
+  --c-text4:        #456;
+  --c-green:        #00e054;
+  --c-green2:       #00c048;
+  --c-green-muted:  rgba(0, 224, 84, 0.14);
+  --c-green-ring:   rgba(0, 224, 84, 0.35);
+  --c-blue:         #40bcf4;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--c-bg);
+  color: var(--c-text);
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Inputs always inherit the theme's text color and use the correct color-scheme
+   so typed text, cursors, and date/select pickers render correctly. */
+input,
+textarea,
+select {
+  color: var(--c-text);
+  color-scheme: light;
+}
+.dark input,
+.dark textarea,
+.dark select {
+  color-scheme: dark;
+}
+
+/* Override Chrome autofill yellow flash */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--c-text);
+  -webkit-box-shadow: 0 0 0px 1000px var(--c-input) inset;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

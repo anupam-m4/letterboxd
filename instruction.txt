@@ -1,0 +1,20 @@
+Rules enforced:
+ 
+Hard-coded values / magic strings → must be constants or enums
+No ternary / inline && conditionals inside JSX return blocks
+No date libs (moment / date-fns) directly in component files
+Type safety – no any, unknown, @ts-ignore, as any
+Code complexity – no deeply nested ternaries
+React Context architecture – only { state, data, actions } keys
+Naming conventions – meaningful names, consistent across feature
+useFormContext / react-hook-form must be removed
+Redux-style file splitting (slices/reducers/actions) not allowed
+console.log ONLY allowed inside catch blocks; banned everywhere else
+Prettier formatting – trailing spaces, mixed quotes, semicolons
+Extra blank lines – more than 2 consecutive blank lines (ESLint rule)
+Import order – React first, then external, then internal/relative
+Reusable code candidates – identical/near-identical blocks across files
+Logic that belongs in a utils file, not in a component/context
+Repeated hard-coded string values that should be a shared enum/const
+Code-pattern inconsistency across the same feature
+File & variable naming consistency across a feature
