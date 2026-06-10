@@ -66,6 +66,8 @@ const getMovieDetail = async (tmdbId, userId) => {
   let movie = await Movie.findOne({ where: { tmdb_id: tmdbId } });
   let cast = [];
 
+  let trailerKey = null;
+
   if (!movie) {
     try {
       const data = await tmdb.getMovieById(tmdbId);
@@ -81,6 +83,7 @@ const getMovieDetail = async (tmdbId, userId) => {
         vote_average: data.vote_average || null,
       });
       cast = parseCast(data.credits);
+      trailerKey = parseTrailer(data.videos);
     } catch {
       throw createError(404, ERRORS.MOVIE_NOT_FOUND);
     }
@@ -88,6 +91,7 @@ const getMovieDetail = async (tmdbId, userId) => {
     try {
       const fresh = await tmdb.getMovieById(tmdbId);
       cast = parseCast(fresh.credits);
+      trailerKey = parseTrailer(fresh.videos);
       if (fresh.vote_average != null) {
         await movie.update({ vote_average: fresh.vote_average });
       }
@@ -97,7 +101,7 @@ const getMovieDetail = async (tmdbId, userId) => {
   }
 
   const userState = await getUserMovieState(userId, movie.id);
-  return { movie: formatMovie(movie), cast, userState };
+  return { movie: formatMovie(movie), cast, trailerKey, userState };
 };
 
 const getSimilar = async (tmdbId) => {
@@ -133,6 +137,16 @@ const parseCast = (credits) => {
     character: c.character,
     profile_path: c.profile_path ? tmdb.buildImageUrl(c.profile_path) : null,
   }));
+};
+
+const parseTrailer = (videos) => {
+  if (!videos || !videos.results) return null;
+  const trailers = videos.results.filter(
+    (v) => v.site === 'YouTube' && v.type === 'Trailer',
+  );
+  const official = trailers.find((v) => v.official);
+  const pick = official || trailers[0];
+  return pick ? pick.key : null;
 };
 
 const formatTmdbResult = (item) => ({

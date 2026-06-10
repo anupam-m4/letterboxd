@@ -15,7 +15,7 @@ const searchMovies = async (query, page = 1) => {
 
 const getMovieById = async (tmdbId) => {
   const response = await tmdbClient.get(`/movie/${tmdbId}`, {
-    params: { append_to_response: 'credits' },
+    params: { append_to_response: 'credits,videos' },
   });
   return response.data;
 };

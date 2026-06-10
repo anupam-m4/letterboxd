@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Rate, Spin, message } from 'antd';
 import { moviesService } from '../services/movies.service';
@@ -44,16 +44,26 @@ const MovieDetailPage = () => {
   const { state: authState, data: authData } = useAuth();
   const navigate = useNavigate();
 
-  const [movie, setMovie] = useState<Movie | null>(null);
-  const [cast, setCast] = useState<CastMember[]>([]);
-  const [userState, setUserState] = useState<UserMovieState>({ watched: false, inWatchlist: false, review: null });
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [similar, setSimilar] = useState<TmdbSearchResult[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [movie,         setMovie]         = useState<Movie | null>(null);
+  const [cast,          setCast]          = useState<CastMember[]>([]);
+  const [trailerKey,    setTrailerKey]    = useState<string | null>(null);
+  const [showTrailer,   setShowTrailer]   = useState(false);
+  const [userState,     setUserState]     = useState<UserMovieState>({ watched: false, inWatchlist: false, review: null });
+  const [reviews,       setReviews]       = useState<Review[]>([]);
+  const [similar,       setSimilar]       = useState<TmdbSearchResult[]>([]);
+  const [loading,       setLoading]       = useState(true);
   const [reviewContent, setReviewContent] = useState('');
-  const [reviewRating, setReviewRating] = useState(0);
-  const [submitting, setSubmitting] = useState(false);
-  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewRating,  setReviewRating]  = useState(0);
+  const [submitting,    setSubmitting]    = useState(false);
+  const [showReviewForm,setShowReviewForm]= useState(false);
+
+  const closeTrailer = useCallback(() => setShowTrailer(false), []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeTrailer(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [closeTrailer]);
 
   useEffect(() => {
     if (!tmdbId) return;
@@ -66,6 +76,7 @@ const MovieDetailPage = () => {
       .then(([detail, reviewData, similarData]) => {
         setMovie(detail.movie);
         setCast(detail.cast || []);
+        setTrailerKey(detail.trailerKey || null);
         setUserState(detail.userState);
         setReviews(reviewData.reviews);
         setSimilar(similarData.results.slice(0, 10));
@@ -278,6 +289,21 @@ const MovieDetailPage = () => {
               )}
             </div>
 
+            {/* Play Trailer button */}
+            {trailerKey && (
+              <button
+                onClick={() => setShowTrailer(true)}
+                className="flex items-center gap-2 mt-1 text-white/80 hover:text-white text-sm font-medium transition-colors group"
+              >
+                <span className="w-8 h-8 rounded-full border-2 border-white/50 group-hover:border-white flex items-center justify-center transition-colors">
+                  <svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor">
+                    <path d="M0 0L10 6L0 12V0Z" />
+                  </svg>
+                </span>
+                Play Trailer
+              </button>
+            )}
+
             {/* Overview heading + text */}
             {movie.overview && (
               <div>
@@ -458,6 +484,42 @@ const MovieDetailPage = () => {
           </section>
         )}
       </div>
+
+      {/* ─── TRAILER MODAL ─── */}
+      {showTrailer && trailerKey && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
+          onClick={closeTrailer}
+        >
+          <div
+            className="relative w-full max-w-4xl mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={closeTrailer}
+              className="absolute -top-10 right-0 text-white/70 hover:text-white text-sm flex items-center gap-1.5 transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="1" y1="1" x2="13" y2="13" />
+                <line x1="13" y1="1" x2="1" y2="13" />
+              </svg>
+              Close (Esc)
+            </button>
+
+            {/* 16:9 iframe wrapper */}
+            <div className="relative w-full rounded-xl overflow-hidden shadow-2xl" style={{ paddingTop: '56.25%' }}>
+              <iframe
+                className="absolute inset-0 w-full h-full"
+                src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&rel=0`}
+                title="Movie Trailer"
+                allow="autoplay; encrypted-media; fullscreen"
+                allowFullScreen
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

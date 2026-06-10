@@ -18,6 +18,7 @@ export interface Movie {
   genres: string[];
   runtime: number | null;
   vote_average?: number | null;
+  trailer_key?: string | null;
 }
 
 export interface TmdbSearchResult {
