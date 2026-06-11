@@ -1,6 +1,10 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ROUTES } from '../constants/routes';
+import HomePage from '../pages/HomePage';
+import WelcomePage from '../pages/WelcomePage';
+import JournalPage from '../pages/JournalPage';
+import AiPicksPage from '../pages/AiPicksPage';
 import LoginPage from '../pages/LoginPage';
 import RegisterPage from '../pages/RegisterPage';
 import SearchPage from '../pages/SearchPage';
@@ -35,7 +39,11 @@ const AppRouter = () => {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path={ROUTES.HOME} element={<SearchPage />} />
+        <Route path={ROUTES.HOME} element={<HomePage />} />
+        <Route path={ROUTES.WELCOME} element={<ProtectedRoute><WelcomePage /></ProtectedRoute>} />
+        <Route path={ROUTES.JOURNAL} element={<JournalPage />} />
+        <Route path={ROUTES.AI_PICKS} element={<ProtectedRoute><AiPicksPage /></ProtectedRoute>} />
+        <Route path={ROUTES.FILMS} element={<SearchPage />} />
         <Route path={ROUTES.SEARCH} element={<SearchPage />} />
         <Route path={ROUTES.LOGIN} element={<LoginPage />} />
         <Route path={ROUTES.REGISTER} element={<RegisterPage />} />

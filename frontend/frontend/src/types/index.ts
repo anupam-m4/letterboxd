@@ -28,6 +28,11 @@ export interface TmdbSearchResult {
   poster_path: string | null;
   overview: string;
   vote_average: number;
+  vote_count?: number;
+}
+
+export interface ReviewWithMovie extends Review {
+  movie: Pick<Movie, 'id' | 'tmdb_id' | 'title' | 'poster_path' | 'release_date'>;
 }
 
 export interface Review {
@@ -102,6 +107,29 @@ export interface FeedActivity {
   created_at: string;
   user: Pick<User, 'id' | 'username' | 'avatar_url'>;
   movie: MovieSummary;
+}
+
+export interface RecommendedFilm {
+  title: string;
+  year: number;
+  reason: string;
+  similar_to: string;
+  tmdb_id?: number;
+  poster_path?: string | null;
+  overview?: string;
+}
+
+export interface JournalArticle {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  category: string;
+  author: string;
+  image_url: string | null;
+  published_at: string;
+  is_featured: boolean;
+  is_spotlight: boolean;
+  created_at: string;
 }
 
 export interface LoginPayload {

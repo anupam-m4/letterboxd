@@ -1,5 +1,7 @@
 export const ROUTES = {
   HOME: '/',
+  FILMS: '/films',
+  WELCOME: '/welcome',
   LOGIN: '/login',
   REGISTER: '/register',
   SEARCH: '/search',
@@ -9,6 +11,8 @@ export const ROUTES = {
   WATCHED: '/watched',
   FEED: '/feed',
   USER_SEARCH: '/users/search',
+  JOURNAL: '/journal',
+  AI_PICKS: '/ai-picks',
 } as const;
 
 export const buildRoute = {
