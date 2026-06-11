@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Spin, message, Modal } from 'antd';
+import { Spin, message } from 'antd';
 import { usersService } from '../services/users.service';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
 import type { UserProfile, Review } from '../types';
 import ReviewCard from '../components/features/ReviewCard';
 import Navbar from '../components/ui/Navbar';
@@ -18,7 +17,6 @@ const StatBox = ({ label, value }: { label: string; value: number }) => (
 const ProfilePage = () => {
   const { username } = useParams<{ username: string }>();
   const { data: authData, actions: authActions } = useAuth();
-  const { state: themeState } = useTheme();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -81,11 +79,6 @@ const ProfilePage = () => {
     setProfile((prev) => prev ? { ...prev, stats: { ...prev.stats, reviews: prev.stats.reviews - 1 } } : prev);
   };
 
-  const isDark = themeState.theme === 'dark';
-  const modalStyles = isDark
-    ? { content: { background: '#1a1d20', border: '1px solid #2c3440' }, header: { background: '#1a1d20' } }
-    : { content: { background: '#ffffff', border: '1px solid #d4d0cc' }, header: { background: '#ffffff' } };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-c-bg">
@@ -113,7 +106,7 @@ const ProfilePage = () => {
       <Navbar />
 
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="bg-c-card2 rounded-lg p-6 border border-c-border mb-8">
+        <div className="rounded p-6 border border-[#2c3440] mb-8" style={{ backgroundColor: '#1c2028' }}>
           <div className="flex items-start justify-between mb-6">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-full bg-c-surface overflow-hidden flex items-center justify-center text-c-text text-2xl font-bold flex-shrink-0">
@@ -170,7 +163,10 @@ const ProfilePage = () => {
         </div>
 
         <div>
-          <h2 className="text-c-text font-semibold text-lg mb-4">Recent Reviews</h2>
+          <div className="flex items-center gap-2 mb-4 pb-2 border-b border-[#2c3440]">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="#00e054"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
+            <h2 className="text-white text-sm font-bold uppercase tracking-widest" style={{ fontFamily: 'Source Sans 3, sans-serif' }}>Recent Reviews</h2>
+          </div>
           {reviews.length === 0 ? (
             <p className="text-c-text3 text-sm">No reviews yet.</p>
           ) : (
@@ -188,40 +184,148 @@ const ProfilePage = () => {
         </div>
       </div>
 
-      <Modal
-        title={<span className="text-c-text">Edit Profile</span>}
-        open={editOpen}
-        onCancel={() => setEditOpen(false)}
-        onOk={handleEditSave}
-        confirmLoading={editLoading}
-        okText="Save"
-        styles={modalStyles}
-      >
-        <div className="space-y-4 py-2">
-          <div className="space-y-1">
-            <label className="text-c-text2 text-sm">Bio</label>
-            <textarea
-              value={editBio}
-              onChange={(e) => setEditBio(e.target.value)}
-              rows={3}
-              maxLength={300}
-              placeholder="Tell the world about your taste in films..."
-              className="w-full bg-c-input border border-c-border rounded px-3 py-2 text-c-text text-sm placeholder-c-text4 focus:outline-none focus:border-c-green transition-colors resize-none"
-            />
-            <p className="text-c-text4 text-xs text-right">{editBio.length}/300</p>
-          </div>
-          <div className="space-y-1">
-            <label className="text-c-text2 text-sm">Avatar URL</label>
-            <input
-              type="url"
-              value={editAvatar}
-              onChange={(e) => setEditAvatar(e.target.value)}
-              placeholder="https://example.com/avatar.jpg"
-              className="w-full bg-c-input border border-c-border rounded px-3 py-2 text-c-text text-sm placeholder-c-text4 focus:outline-none focus:border-c-green transition-colors"
-            />
+      {/* ── Edit Profile Modal ─────────────────────────────────── */}
+      {editOpen && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setEditOpen(false); }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            backgroundColor: 'rgba(0,0,0,0.65)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '16px',
+          }}
+        >
+          <div style={{
+            backgroundColor: '#1c2028',
+            border: '1px solid #2c3440',
+            borderRadius: '8px',
+            width: '100%', maxWidth: '460px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.7)',
+          }}>
+            {/* Header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '18px 24px 16px',
+              borderBottom: '1px solid #2c3440',
+            }}>
+              <h3 style={{ color: '#fff', fontSize: '15px', fontWeight: 700, fontFamily: 'Lato, sans-serif', margin: 0, letterSpacing: '0.03em' }}>
+                Edit Profile
+              </h3>
+              <button
+                onClick={() => setEditOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#678', cursor: 'pointer', fontSize: '20px', lineHeight: 1, padding: '0 4px', transition: 'color 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#9ab')}
+                onMouseLeave={e => (e.currentTarget.style.color = '#678')}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: '20px 24px 24px' }}>
+              {/* Bio */}
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{
+                  display: 'block', color: '#9ab', fontSize: '11px',
+                  fontFamily: 'Lato, sans-serif', fontWeight: 700,
+                  textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '7px',
+                }}>
+                  Bio
+                </label>
+                <textarea
+                  value={editBio}
+                  onChange={(e) => setEditBio(e.target.value)}
+                  rows={3}
+                  maxLength={300}
+                  placeholder="Tell the world about your taste in films…"
+                  style={{
+                    width: '100%', backgroundColor: '#252b36',
+                    border: '1px solid #3d4f5d', borderRadius: '4px',
+                    color: '#e8eaed', fontSize: '13px', fontFamily: 'Lato, sans-serif',
+                    padding: '10px 12px', outline: 'none', resize: 'none',
+                    boxSizing: 'border-box', lineHeight: 1.5,
+                    transition: 'border-color 0.15s',
+                  }}
+                  onFocus={e => (e.target.style.borderColor = '#00e054')}
+                  onBlur={e => (e.target.style.borderColor = '#3d4f5d')}
+                />
+                <p style={{ color: '#678', fontSize: '11px', fontFamily: 'Lato, sans-serif', textAlign: 'right', marginTop: '4px' }}>
+                  {editBio.length}/300
+                </p>
+              </div>
+
+              {/* Avatar URL */}
+              <div style={{ marginBottom: '28px' }}>
+                <label style={{
+                  display: 'block', color: '#9ab', fontSize: '11px',
+                  fontFamily: 'Lato, sans-serif', fontWeight: 700,
+                  textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '7px',
+                }}>
+                  Avatar URL
+                </label>
+                <input
+                  type="url"
+                  value={editAvatar}
+                  onChange={(e) => setEditAvatar(e.target.value)}
+                  placeholder="https://example.com/avatar.jpg"
+                  style={{
+                    width: '100%', backgroundColor: '#252b36',
+                    border: '1px solid #3d4f5d', borderRadius: '4px',
+                    color: '#e8eaed', fontSize: '13px', fontFamily: 'Lato, sans-serif',
+                    padding: '10px 12px', outline: 'none',
+                    boxSizing: 'border-box', transition: 'border-color 0.15s',
+                  }}
+                  onFocus={e => (e.target.style.borderColor = '#00e054')}
+                  onBlur={e => (e.target.style.borderColor = '#3d4f5d')}
+                />
+                {editAvatar && (
+                  <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <img
+                      src={editAvatar}
+                      alt="preview"
+                      onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #2c3440' }}
+                    />
+                    <span style={{ color: '#678', fontSize: '11px', fontFamily: 'Lato, sans-serif' }}>Preview</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button
+                  onClick={() => setEditOpen(false)}
+                  style={{
+                    backgroundColor: 'transparent', border: '1px solid #3d4f5d',
+                    borderRadius: '4px', color: '#9ab', fontSize: '13px',
+                    fontFamily: 'Lato, sans-serif', fontWeight: 600,
+                    padding: '8px 20px', cursor: 'pointer', transition: 'border-color 0.15s, color 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#678'; e.currentTarget.style.color = '#cdd'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#3d4f5d'; e.currentTarget.style.color = '#9ab'; }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEditSave}
+                  disabled={editLoading}
+                  style={{
+                    backgroundColor: '#00e054', border: 'none',
+                    borderRadius: '4px', color: '#000', fontSize: '13px',
+                    fontFamily: 'Lato, sans-serif', fontWeight: 700,
+                    padding: '8px 24px', cursor: editLoading ? 'not-allowed' : 'pointer',
+                    opacity: editLoading ? 0.7 : 1, transition: 'opacity 0.15s, background-color 0.15s',
+                  }}
+                  onMouseEnter={e => { if (!editLoading) e.currentTarget.style.backgroundColor = '#00c048'; }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#00e054'; }}
+                >
+                  {editLoading ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </Modal>
+      )}
     </div>
   );
 };
