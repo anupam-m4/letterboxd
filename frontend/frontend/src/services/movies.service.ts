@@ -11,6 +11,7 @@ interface MovieListResponse {
 interface MovieDetailResponse {
   movie: Movie;
   cast: CastMember[];
+  trailerKey: string | null;
   userState: UserMovieState;
 }
 

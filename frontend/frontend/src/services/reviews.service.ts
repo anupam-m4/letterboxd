@@ -38,4 +38,9 @@ const like = async (reviewId: string): Promise<{ liked: boolean; likes_count: nu
   return response.data;
 };
 
-export const reviewsService = { create, update, remove, getByMovie, like };
+const getRecent = async (limit = 10): Promise<Review[]> => {
+  const response = await api.get<{ reviews: Review[] }>('/reviews/recent', { params: { limit } });
+  return response.data.reviews;
+};
+
+export const reviewsService = { create, update, remove, getByMovie, like, getRecent };

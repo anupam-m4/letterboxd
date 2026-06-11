@@ -15,6 +15,7 @@ interface AuthActions {
   login: (payload: LoginPayload) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
   logout: () => void;
+  updateUser: (patch: Partial<User>) => void;
 }
 
 interface AuthContextValue {
@@ -68,7 +69,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setState({ isLoading: false, isAuthenticated: false });
   };
 
-  const actions: AuthActions = { login, register, logout };
+  const updateUser = (patch: Partial<User>) => {
+    setData((prev) => prev.user ? { user: { ...prev.user, ...patch } } : prev);
+  };
+
+  const actions: AuthActions = { login, register, logout, updateUser };
 
   return (
     <AuthContext.Provider value={{ state, data, actions }}>
