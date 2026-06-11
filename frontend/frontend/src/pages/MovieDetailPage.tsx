@@ -1,40 +1,178 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Rate, Spin, message } from 'antd';
+import { Spin, message } from 'antd';
 import { moviesService } from '../services/movies.service';
 import { reviewsService } from '../services/reviews.service';
 import { usersService } from '../services/users.service';
 import { useAuth } from '../context/AuthContext';
 import type { Movie, Review, UserMovieState, CastMember, TmdbSearchResult } from '../types';
 import ReviewCard from '../components/features/ReviewCard';
+import AiInsights from '../components/features/AiInsights';
 import Navbar from '../components/ui/Navbar';
 import { ROUTES, buildRoute } from '../constants/routes';
 
 const PLACEHOLDER_POSTER = 'https://placehold.co/300x450/1c2028/456?text=No+Poster';
 
-const ScoreRing = ({ score }: { score: number }) => {
-  const pct = Math.round(score * 10);
-  const color = pct >= 70 ? '#21d07a' : pct >= 40 ? '#d2d531' : '#db2360';
-  const r = 18;
-  const circ = 2 * Math.PI * r;
-  const dash = (pct / 100) * circ;
-  return (
-    <div className="flex items-center gap-2">
-      <div className="relative w-12 h-12 bg-[#081c22] rounded-full flex items-center justify-center">
-        <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 44 44">
-          <circle cx="22" cy="22" r={r} fill="none" stroke="#204529" strokeWidth="3" />
-          <circle
-            cx="22" cy="22" r={r} fill="none"
-            stroke={color} strokeWidth="3"
-            strokeDasharray={`${dash} ${circ - dash}`}
-            strokeLinecap="round"
-          />
-        </svg>
-        <span className="text-white text-xs font-bold leading-none z-10">
-          {pct}<sup className="text-[8px]">%</sup>
+/* ── Circular icon button (matches reference exactly) ── */
+interface IconBtnProps {
+  active: boolean;
+  activeColor: string;
+  label: string;
+  activeLabel?: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}
+const IconBtn = ({ active, activeColor, label, activeLabel, onClick, children }: IconBtnProps) => (
+  <button
+    onClick={onClick}
+    className="flex flex-col items-center gap-1.5 group"
+  >
+    <div
+      className="w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200"
+      style={{
+        backgroundColor: active ? activeColor : 'rgba(255,255,255,0.08)',
+        color: active ? '#fff' : 'rgba(255,255,255,0.5)',
+        boxShadow: active ? `0 0 0 2px ${activeColor}` : 'none',
+      }}
+    >
+      {children}
+    </div>
+    <span
+      className="text-[10px] uppercase tracking-widest transition-colors"
+      style={{
+        fontFamily: 'Lato, sans-serif',
+        color: active ? activeColor : 'rgba(255,255,255,0.4)',
+      }}
+    >
+      {active && activeLabel ? activeLabel : label}
+    </span>
+  </button>
+);
+
+/* ── Eye icon ── */
+const EyeIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5C21.27 7.61 17 4.5 12 4.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
+  </svg>
+);
+
+/* ── Heart icon ── */
+const HeartIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+  </svg>
+);
+
+/* ── Clock icon ── */
+const ClockIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z" />
+  </svg>
+);
+
+/* ── Star icon ── */
+const StarIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+  </svg>
+);
+
+/* ── Read-only star display ── */
+const StaticStars = ({ value, size = 16 }: { value: number; size?: number }) => (
+  <span style={{ display: 'inline-flex', gap: '2px' }}>
+    {[1, 2, 3, 4, 5].map(n => {
+      const isFull = value >= n;
+      const isHalf = !isFull && value >= n - 0.5;
+      return (
+        <span key={n} style={{ position: 'relative', display: 'inline-block', width: size, height: size, lineHeight: `${size}px` }}>
+          <span style={{ position: 'absolute', inset: 0, fontSize: size, color: '#3a4a5c', userSelect: 'none' }}>★</span>
+          <span style={{ position: 'absolute', inset: 0, fontSize: size, color: '#f5a623', overflow: 'hidden', width: isFull ? '100%' : isHalf ? '50%' : '0%', userSelect: 'none' }}>★</span>
         </span>
+      );
+    })}
+  </span>
+);
+
+/* ── Interactive star rating (replaces Ant Design Rate) ── */
+const STAR_LABELS = ['', 'Awful', 'Bad', 'Poor', 'Mediocre', 'Average', 'Good', 'Great', 'Excellent', 'Amazing', 'Perfect'];
+
+const StarRating = ({ value, onChange }: { value: number; onChange: (v: number) => void }) => {
+  const [hovered, setHovered] = useState(0);
+  const active = hovered > 0 ? hovered : value;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div
+        style={{ display: 'flex', gap: '4px', alignItems: 'center' }}
+        onMouseLeave={() => setHovered(0)}
+      >
+        {[1, 2, 3, 4, 5].map(n => {
+          const isFull = active >= n;
+          const isHalf = !isFull && active >= n - 0.5;
+          return (
+            <span
+              key={n}
+              style={{ position: 'relative', display: 'inline-block', width: '32px', height: '32px', lineHeight: '32px' }}
+            >
+              {/* Empty star (always visible as base) */}
+              <span style={{
+                position: 'absolute', inset: 0,
+                fontSize: '32px', lineHeight: '32px',
+                color: '#3a4a5c',
+                userSelect: 'none', pointerEvents: 'none',
+              }}>★</span>
+              {/* Filled overlay (clips to show full or half) */}
+              <span style={{
+                position: 'absolute', inset: 0,
+                fontSize: '32px', lineHeight: '32px',
+                color: hovered > 0 ? '#fbbf24' : '#f5a623',
+                overflow: 'hidden',
+                width: isFull ? '100%' : isHalf ? '50%' : '0%',
+                userSelect: 'none', pointerEvents: 'none',
+                transition: 'width 0.08s ease',
+              }}>★</span>
+              {/* Left half — selects n-0.5 */}
+              <span
+                style={{ position: 'absolute', left: 0, top: 0, width: '50%', height: '100%', cursor: 'pointer', zIndex: 2 }}
+                onMouseEnter={() => setHovered(n - 0.5)}
+                onClick={() => onChange(n - 0.5)}
+              />
+              {/* Right half — selects n */}
+              <span
+                style={{ position: 'absolute', right: 0, top: 0, width: '50%', height: '100%', cursor: 'pointer', zIndex: 2 }}
+                onMouseEnter={() => setHovered(n)}
+                onClick={() => onChange(n)}
+              />
+            </span>
+          );
+        })}
+
+        {/* Numeric badge */}
+        {active > 0 && (
+          <span style={{
+            marginLeft: '10px',
+            backgroundColor: 'rgba(245,166,35,0.15)',
+            border: '1px solid rgba(245,166,35,0.35)',
+            color: '#f5a623',
+            fontSize: '12px', fontWeight: 700,
+            fontFamily: 'Lato, sans-serif',
+            padding: '2px 10px', borderRadius: '3px',
+            letterSpacing: '0.04em',
+          }}>
+            {Math.round(active * 2)}/10
+          </span>
+        )}
       </div>
-      <span className="text-white text-xs font-semibold leading-tight">User<br />Score</span>
+
+      {/* Label row */}
+      <p style={{
+        color: active > 0 ? '#f5a623' : '#3a4a5c',
+        fontSize: '11px', fontFamily: 'Lato, sans-serif',
+        fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
+        minHeight: '16px', transition: 'color 0.15s',
+      }}>
+        {active > 0 ? STAR_LABELS[Math.round(active * 2)] : 'Move cursor over stars to rate'}
+      </p>
     </div>
   );
 };
@@ -44,18 +182,18 @@ const MovieDetailPage = () => {
   const { state: authState, data: authData } = useAuth();
   const navigate = useNavigate();
 
-  const [movie,         setMovie]         = useState<Movie | null>(null);
-  const [cast,          setCast]          = useState<CastMember[]>([]);
-  const [trailerKey,    setTrailerKey]    = useState<string | null>(null);
-  const [showTrailer,   setShowTrailer]   = useState(false);
-  const [userState,     setUserState]     = useState<UserMovieState>({ watched: false, inWatchlist: false, review: null });
-  const [reviews,       setReviews]       = useState<Review[]>([]);
-  const [similar,       setSimilar]       = useState<TmdbSearchResult[]>([]);
-  const [loading,       setLoading]       = useState(true);
-  const [reviewContent, setReviewContent] = useState('');
-  const [reviewRating,  setReviewRating]  = useState(0);
-  const [submitting,    setSubmitting]    = useState(false);
-  const [showReviewForm,setShowReviewForm]= useState(false);
+  const [movie,          setMovie]          = useState<Movie | null>(null);
+  const [cast,           setCast]           = useState<CastMember[]>([]);
+  const [trailerKey,     setTrailerKey]     = useState<string | null>(null);
+  const [showTrailer,    setShowTrailer]    = useState(false);
+  const [userState,      setUserState]      = useState<UserMovieState>({ watched: false, inWatchlist: false, review: null });
+  const [reviews,        setReviews]        = useState<Review[]>([]);
+  const [similar,        setSimilar]        = useState<TmdbSearchResult[]>([]);
+  const [loading,        setLoading]        = useState(true);
+  const [reviewContent,  setReviewContent]  = useState('');
+  const [reviewRating,   setReviewRating]   = useState(0);
+  const [submitting,     setSubmitting]     = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(false);
 
   const closeTrailer = useCallback(() => setShowTrailer(false), []);
 
@@ -157,7 +295,7 @@ const MovieDetailPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-c-bg">
+      <div className="min-h-screen" style={{ backgroundColor: '#14181c' }}>
         <Navbar />
         <div className="flex justify-center items-center py-32"><Spin size="large" /></div>
       </div>
@@ -167,153 +305,191 @@ const MovieDetailPage = () => {
   if (!movie) return null;
 
   const releaseYear = movie.release_date ? new Date(movie.release_date).getFullYear() : '';
-  const releaseDate = movie.release_date
-    ? new Date(movie.release_date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
-    : '';
   const runtime = movie.runtime ? `${Math.floor(movie.runtime / 60)}h ${movie.runtime % 60}m` : '';
+  const avgStars = movie.vote_average != null ? Math.round((movie.vote_average / 2) * 2) / 2 : 0;
 
   return (
-    <div className="min-h-screen bg-c-bg">
+    <div className="min-h-screen" style={{ backgroundColor: '#14181c' }}>
       <Navbar />
 
-      {/* ─── HERO ─── */}
-      <div className="relative overflow-hidden" style={{ minHeight: '420px' }}>
-        {/* Backdrop */}
+      {/* ─── HERO BAND ─── */}
+      <div className="relative overflow-hidden" style={{ backgroundColor: '#0a0e13', minHeight: '380px' }}>
         {movie.backdrop_path && (
           <div
-            className="absolute inset-0 bg-cover bg-center scale-105"
-            style={{ backgroundImage: `url(${movie.backdrop_path})`, filter: 'brightness(0.35)' }}
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url(${movie.backdrop_path})`, filter: 'brightness(0.2)', transform: 'scale(1.05)' }}
           />
         )}
-        {/* left-to-right gradient so left side is fully opaque */}
-        <div className="absolute inset-0 bg-gradient-to-r from-c-bg via-c-bg/60 to-transparent" />
-        {/* bottom fade into page bg */}
-        <div className="absolute inset-0 bg-gradient-to-t from-c-bg via-transparent to-transparent" />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, #0a0e13 30%, rgba(10,14,19,0.6) 70%, transparent)' }} />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, #14181c 0%, transparent 40%)' }} />
 
-        {/* Content */}
-        <div className="relative z-10 max-w-5xl mx-auto px-6 py-10 flex gap-8 items-start">
-          {/* ── Poster ── */}
+        {/* ── MAIN CONTENT ROW ── */}
+        <div className="relative z-10 max-w-5xl mx-auto px-6 py-8 flex gap-6 items-start">
+
+          {/* Poster */}
           <div className="flex-shrink-0 hidden sm:block">
             <img
               src={movie.poster_path || PLACEHOLDER_POSTER}
               alt={movie.title}
-              className="w-44 md:w-56 rounded-lg shadow-2xl"
+              className="rounded shadow-2xl"
+              style={{ width: '180px', border: '1px solid rgba(255,255,255,0.06)' }}
             />
           </div>
 
-          {/* ── Info column ── */}
-          <div className="flex-1 pt-1">
-            {/* Title + year */}
-            <h1 className="text-white text-3xl md:text-4xl font-bold leading-snug mb-1">
-              {movie.title}{' '}
+          {/* Middle: title + meta + overview */}
+          <div className="flex-1 min-w-0 pt-2">
+            {/* Title */}
+            <h1 className="text-white font-bold leading-tight mb-1" style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 'clamp(1.5rem, 3vw, 2.2rem)' }}>
+              {movie.title}
               {releaseYear && (
-                <span className="text-white/50 font-normal">({releaseYear})</span>
+                <span className="font-normal text-white/40 ml-2" style={{ fontSize: '0.65em' }}>
+                  {releaseYear}
+                </span>
               )}
             </h1>
 
-            {/* Meta row — release date • genres • runtime */}
-            <div className="flex flex-wrap items-center gap-1.5 text-white/70 text-sm mb-5">
-              {releaseDate && <span>{releaseDate}</span>}
-              {movie.genres.length > 0 && <span className="text-white/30">•</span>}
+            {/* Meta: runtime • genres */}
+            <div className="flex flex-wrap items-center gap-1.5 text-sm mb-4" style={{ color: 'rgba(255,255,255,0.45)', fontFamily: 'Lato, sans-serif' }}>
+              {runtime && <span>{runtime}</span>}
+              {runtime && movie.genres.length > 0 && <span style={{ color: 'rgba(255,255,255,0.2)' }}>•</span>}
               {movie.genres.map((g, i) => (
-                <span key={g} className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => navigate(`/?q=${encodeURIComponent(g)}`)}
-                    className="hover:text-white transition-colors"
-                  >
-                    {g}
-                  </button>
-                  {i < movie.genres.length - 1 && <span className="text-white/30">,</span>}
+                <span key={g} className="flex items-center gap-1">
+                  <button onClick={() => navigate(`/?q=${encodeURIComponent(g)}`)} className="hover:text-white transition-colors">{g}</button>
+                  {i < movie.genres.length - 1 && <span style={{ color: 'rgba(255,255,255,0.2)' }}>,</span>}
                 </span>
               ))}
-              {runtime && (
-                <>
-                  <span className="text-white/30">•</span>
-                  <span>{runtime}</span>
-                </>
-              )}
             </div>
 
-            {/* Score + action buttons row */}
-            <div className="flex flex-wrap items-center gap-4 mb-5">
-              {/* User score ring */}
-              <ScoreRing score={movie.vote_average ?? 0} />
-
-              <div className="w-px h-10 bg-white/15 hidden sm:block" />
-
-              {/* Watched */}
-              <button
-                onClick={handleWatchedToggle}
-                title={userState.watched ? 'Remove from watched' : 'Mark as watched'}
-                className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all border-2 ${
-                  userState.watched
-                    ? 'bg-[#00e054] border-[#00e054] text-black'
-                    : 'bg-white/10 border-white/30 text-white hover:bg-[#00e054]/20 hover:border-[#00e054]'
-                }`}
-              >
-                {userState.watched ? '✓' : '○'}
-              </button>
-
-              {/* Watchlist */}
-              <button
-                onClick={handleWatchlistToggle}
-                title={userState.inWatchlist ? 'Remove from watchlist' : 'Add to watchlist'}
-                className={`w-10 h-10 rounded-full flex items-center justify-center text-base transition-all border-2 ${
-                  userState.inWatchlist
-                    ? 'bg-[#40bcf4] border-[#40bcf4] text-black'
-                    : 'bg-white/10 border-white/30 text-white hover:bg-[#40bcf4]/20 hover:border-[#40bcf4]'
-                }`}
-              >
-                {userState.inWatchlist ? '✓' : '🔖'}
-              </button>
-
-              {/* Rate */}
-              <button
-                onClick={() => setShowReviewForm((v) => !v)}
-                title={userState.review ? 'Edit your review' : 'Rate & review'}
-                className={`w-10 h-10 rounded-full flex items-center justify-center text-base transition-all border-2 ${
-                  userState.review
-                    ? 'bg-[#f5c518] border-[#f5c518] text-black'
-                    : 'bg-white/10 border-white/30 text-white hover:bg-[#f5c518]/20 hover:border-[#f5c518]'
-                }`}
-              >
-                ★
-              </button>
-
-              {/* Current star rating */}
-              {userState.review && !showReviewForm && (
-                <div className="flex items-center gap-1.5">
-                  <Rate disabled value={userState.review.rating / 2} allowHalf style={{ fontSize: '13px', color: '#f5c518' }} />
-                  <span className="text-white/50 text-xs">{userState.review.rating}/10</span>
-                </div>
-              )}
+            {/* Genre pills — Letterboxd style */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              {movie.genres.map((g) => (
+                <button
+                  key={g}
+                  onClick={() => navigate(`/?q=${encodeURIComponent(g)}`)}
+                  className="text-xs px-2.5 py-0.5 rounded transition-colors hover:bg-white/15"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)', fontFamily: 'Lato, sans-serif', border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  {g}
+                </button>
+              ))}
             </div>
 
-            {/* Play Trailer button */}
+            {/* Overview */}
+            {movie.overview && (
+              <p className="text-sm leading-relaxed line-clamp-5 max-w-xl" style={{ color: 'rgba(255,255,255,0.65)', fontFamily: 'Lato, sans-serif' }}>
+                {movie.overview}
+              </p>
+            )}
+
+            {/* Play Trailer */}
             {trailerKey && (
               <button
                 onClick={() => setShowTrailer(true)}
-                className="flex items-center gap-2 mt-1 text-white/80 hover:text-white text-sm font-medium transition-colors group"
+                className="flex items-center gap-2 mt-4 text-sm transition-colors group"
+                style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Lato, sans-serif' }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.5)')}
               >
-                <span className="w-8 h-8 rounded-full border-2 border-white/50 group-hover:border-white flex items-center justify-center transition-colors">
-                  <svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor">
-                    <path d="M0 0L10 6L0 12V0Z" />
-                  </svg>
+                <span className="w-7 h-7 rounded-full border border-current flex items-center justify-center flex-shrink-0">
+                  <svg width="8" height="10" viewBox="0 0 10 12" fill="currentColor"><path d="M0 0L10 6L0 12V0Z" /></svg>
                 </span>
                 Play Trailer
               </button>
             )}
+          </div>
 
-            {/* Overview heading + text */}
-            {movie.overview && (
-              <div>
-                <p className="text-white/50 text-sm italic mb-1">Overview</p>
-                <p className="text-white/85 text-sm leading-relaxed max-w-xl line-clamp-6">
-                  {movie.overview}
-                </p>
-              </div>
+          {/* ── RIGHT PANEL: action buttons + ratings (matches reference exactly) ── */}
+          <div
+            className="flex-shrink-0 rounded-lg p-4 flex flex-col items-center gap-4"
+            style={{ backgroundColor: '#2c3440', minWidth: '180px', border: '1px solid rgba(255,255,255,0.06)' }}
+          >
+            {/* 3 icon buttons in a row */}
+            <div className="flex items-start gap-4">
+              <IconBtn
+                active={userState.watched}
+                activeColor="#00e054"
+                label="Watch"
+                activeLabel="Watched"
+                onClick={handleWatchedToggle}
+              >
+                <EyeIcon />
+              </IconBtn>
+
+              <IconBtn
+                active={!!userState.review}
+                activeColor="#f5623b"
+                label="Like"
+                activeLabel="Liked"
+                onClick={() => setShowReviewForm((v) => !v)}
+              >
+                <HeartIcon />
+              </IconBtn>
+
+              <IconBtn
+                active={userState.inWatchlist}
+                activeColor="#40bcf4"
+                label="Watchlist"
+                onClick={handleWatchlistToggle}
+              >
+                <ClockIcon />
+              </IconBtn>
+            </div>
+
+            {/* Divider */}
+            <div className="w-full h-px" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+
+            {/* Ratings */}
+            <div className="w-full text-center">
+              <p className="text-xs uppercase tracking-widest mb-2" style={{ color: 'rgba(255,255,255,0.35)', fontFamily: 'Lato, sans-serif' }}>
+                Ratings
+              </p>
+              {avgStars > 0 ? (
+                <StaticStars value={avgStars} size={18} />
+              ) : (
+                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.25)', fontFamily: 'Lato, sans-serif' }}>No ratings yet</p>
+              )}
+            </div>
+
+            {/* User's own rating if they reviewed */}
+            {userState.review && (
+              <>
+                <div className="w-full h-px" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                <div className="w-full text-center">
+                  <p className="text-xs uppercase tracking-widest mb-2" style={{ color: 'rgba(255,255,255,0.35)', fontFamily: 'Lato, sans-serif' }}>
+                    Your Rating
+                  </p>
+                  <div className="flex items-center justify-center gap-1">
+                    <StaticStars value={userState.review.rating / 2} size={14} />
+                  </div>
+                  <button
+                    onClick={() => setShowReviewForm((v) => !v)}
+                    className="mt-2 text-xs hover:underline transition-colors"
+                    style={{ color: '#00e054', fontFamily: 'Lato, sans-serif' }}
+                  >
+                    {showReviewForm ? 'Cancel' : 'Edit review'}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* Rate button if no review yet */}
+            {!userState.review && (
+              <button
+                onClick={() => setShowReviewForm((v) => !v)}
+                className="w-full flex items-center justify-center gap-2 py-2 rounded text-xs font-bold uppercase tracking-wide transition-all"
+                style={{
+                  backgroundColor: showReviewForm ? 'rgba(255,255,255,0.08)' : 'rgba(245,166,35,0.15)',
+                  color: '#f5a623',
+                  border: '1px solid rgba(245,166,35,0.3)',
+                  fontFamily: 'Lato, sans-serif',
+                }}
+              >
+                <StarIcon />
+                {showReviewForm ? 'Cancel' : 'Rate Film'}
+              </button>
             )}
           </div>
+
         </div>
       </div>
 
@@ -322,39 +498,51 @@ const MovieDetailPage = () => {
 
         {/* Review form */}
         {showReviewForm && (
-          <form onSubmit={handleReviewSubmit} className="bg-c-card rounded-xl p-6 border border-c-border shadow-xl">
-            <h3 className="text-c-text font-bold text-lg mb-5">
+          <form
+            onSubmit={handleReviewSubmit}
+            className="rounded-lg p-6 border shadow-xl"
+            style={{ backgroundColor: '#1c2028', borderColor: '#2c3440' }}
+          >
+            <h3 className="text-white font-bold text-base mb-5 uppercase tracking-widest" style={{ fontFamily: 'Lato, sans-serif' }}>
               {userState.review ? 'Edit your review' : 'Write a review'}
             </h3>
             <div className="mb-5">
-              <label className="text-c-text3 text-xs uppercase tracking-wider mb-2 block">Your Rating</label>
-              <div className="flex items-center gap-3">
-                <Rate allowHalf value={reviewRating} onChange={setReviewRating} style={{ fontSize: '28px', color: '#f5c518' }} />
-                {reviewRating > 0 && (
-                  <span className="text-sm font-semibold bg-[#f5c518]/20 text-[#f5c518] px-2 py-0.5 rounded">
-                    {Math.round(reviewRating * 2)}/10
-                  </span>
-                )}
-              </div>
+              <label className="text-xs uppercase tracking-widest mb-2 block" style={{ color: 'rgba(255,255,255,0.35)', fontFamily: 'Lato, sans-serif' }}>
+                Your Rating
+              </label>
+              <StarRating value={reviewRating} onChange={setReviewRating} />
             </div>
             <div className="mb-5">
-              <label className="text-c-text3 text-xs uppercase tracking-wider mb-2 block">Review</label>
+              <label className="text-xs uppercase tracking-widest mb-2 block" style={{ color: 'rgba(255,255,255,0.35)', fontFamily: 'Lato, sans-serif' }}>
+                Review
+              </label>
               <textarea
                 value={reviewContent}
                 onChange={(e) => setReviewContent(e.target.value)}
                 rows={5}
                 placeholder="Write your thoughts about this film..."
-                className="w-full bg-c-bg border border-c-border rounded-lg px-4 py-3 text-c-text text-sm placeholder-c-text4 focus:outline-none focus:border-c-green transition-colors resize-none"
+                className="w-full rounded px-4 py-3 text-sm focus:outline-none resize-none transition-colors"
+                style={{
+                  backgroundColor: '#14181c',
+                  border: '1px solid #2c3440',
+                  color: '#e5e5e5',
+                  fontFamily: 'Lato, sans-serif',
+                }}
               />
             </div>
             <div className="flex gap-3">
-              <button type="submit" disabled={submitting}
-                style={{ backgroundColor: 'var(--c-green)', color: '#000000' }}
-                className="disabled:opacity-50 font-bold px-6 py-2.5 rounded-lg text-sm transition-opacity">
+              <button
+                type="submit" disabled={submitting}
+                className="font-bold px-6 py-2 rounded text-sm uppercase tracking-wide disabled:opacity-50 transition-opacity hover:opacity-90"
+                style={{ backgroundColor: '#00e054', color: '#000', fontFamily: 'Lato, sans-serif' }}
+              >
                 {submitting ? 'Saving...' : userState.review ? 'Update review' : 'Post review'}
               </button>
-              <button type="button" onClick={() => setShowReviewForm(false)}
-                className="bg-c-surface hover:bg-c-input text-c-text2 px-6 py-2.5 rounded-lg text-sm transition-colors">
+              <button
+                type="button" onClick={() => setShowReviewForm(false)}
+                className="px-6 py-2 rounded text-sm transition-colors"
+                style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', fontFamily: 'Lato, sans-serif' }}
+              >
                 Cancel
               </button>
             </div>
@@ -364,38 +552,25 @@ const MovieDetailPage = () => {
         {/* ─── TOP BILLED CAST ─── */}
         {cast.length > 0 && (
           <section>
-            <h2 className="text-c-text font-bold text-xl mb-4 pb-2 border-b border-c-border">Top Billed Cast</h2>
-            <div className="flex gap-3 overflow-x-auto no-scrollbar py-1">
+            <p className="text-xs uppercase tracking-widest font-bold mb-4 pb-2 border-b"
+              style={{ color: 'rgba(255,255,255,0.35)', borderColor: '#2c3440', fontFamily: 'Source Sans 3, sans-serif' }}>
+              Top Billed Cast
+            </p>
+            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
               {cast.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex-shrink-0 w-[138px] rounded-lg overflow-hidden shadow-lg bg-c-card border border-c-border"
-                >
-                  {/* Portrait photo — 2:3 ratio */}
-                  <div className="w-full overflow-hidden bg-c-surface" style={{ height: '175px' }}>
+                <div key={member.id} className="flex-shrink-0 w-28 rounded overflow-hidden" style={{ backgroundColor: '#1c2028', border: '1px solid #2c3440' }}>
+                  <div className="w-full" style={{ height: '145px', backgroundColor: '#252b36', overflow: 'hidden' }}>
                     {member.profile_path ? (
-                      <img
-                        src={member.profile_path}
-                        alt={member.name}
-                        className="w-full h-full object-cover object-top"
-                        loading="lazy"
-                      />
+                      <img src={member.profile_path} alt={member.name} className="w-full h-full object-cover object-top" loading="lazy" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-5xl font-bold text-c-text4">
-                          {member.name.charAt(0)}
-                        </span>
+                        <span className="text-3xl font-bold" style={{ color: 'rgba(255,255,255,0.2)' }}>{member.name.charAt(0)}</span>
                       </div>
                     )}
                   </div>
-                  {/* Text */}
-                  <div className="p-3 pb-4">
-                    <p className="text-c-text text-xs font-bold leading-snug mb-0.5 line-clamp-2">
-                      {member.name}
-                    </p>
-                    <p className="text-c-text3 text-xs leading-snug line-clamp-2">
-                      {member.character}
-                    </p>
+                  <div className="p-2">
+                    <p className="text-xs font-bold leading-snug line-clamp-2 mb-0.5" style={{ color: '#ccc', fontFamily: 'Lato, sans-serif' }}>{member.name}</p>
+                    <p className="text-xs leading-snug line-clamp-2" style={{ color: 'rgba(255,255,255,0.35)', fontFamily: 'Lato, sans-serif' }}>{member.character}</p>
                   </div>
                 </div>
               ))}
@@ -405,20 +580,21 @@ const MovieDetailPage = () => {
 
         {/* ─── REVIEWS ─── */}
         <section>
-          <h2 className="text-c-text font-bold text-xl mb-4 pb-2 border-b border-c-border flex items-center gap-2">
+          <p className="text-xs uppercase tracking-widest font-bold mb-4 pb-2 border-b flex items-center gap-2"
+            style={{ color: 'rgba(255,255,255,0.35)', borderColor: '#2c3440', fontFamily: 'Source Sans 3, sans-serif' }}>
             Reviews
             {reviews.length > 0 && (
-              <span className="text-sm font-normal text-c-text3 bg-c-surface px-2 py-0.5 rounded-full">
+              <span className="rounded-full px-2 py-0.5 text-xs normal-case tracking-normal" style={{ backgroundColor: '#2c3440', color: 'rgba(255,255,255,0.4)' }}>
                 {reviews.length}
               </span>
             )}
-          </h2>
+          </p>
 
           {reviews.length === 0 && !showReviewForm && (
-            <div className="text-center py-10 rounded-xl bg-c-card border border-c-border">
-              <p className="text-c-text4 text-sm mb-3">No reviews yet for this film.</p>
+            <div className="text-center py-10 rounded border" style={{ backgroundColor: '#1c2028', borderColor: '#2c3440' }}>
+              <p className="text-sm mb-2" style={{ color: 'rgba(255,255,255,0.3)', fontFamily: 'Lato, sans-serif' }}>No reviews yet.</p>
               {authState.isAuthenticated && (
-                <button onClick={() => setShowReviewForm(true)} className="text-c-green text-sm hover:underline">
+                <button onClick={() => setShowReviewForm(true)} className="text-sm hover:underline" style={{ color: '#00e054', fontFamily: 'Lato, sans-serif' }}>
                   Be the first to review →
                 </button>
               )}
@@ -437,77 +613,54 @@ const MovieDetailPage = () => {
               ))}
             </div>
           )}
+
+          <AiInsights tmdbId={Number(tmdbId)} reviewCount={reviews.length} />
         </section>
 
-        {/* ─── SIMILAR MOVIES ─── */}
+        {/* ─── MORE LIKE THIS ─── */}
         {similar.length > 0 && (
           <section>
-            <h2 className="text-c-text font-bold text-xl mb-4 pb-2 border-b border-c-border">
-              If you liked{' '}
-              <span className="italic text-c-text2">{movie.title}</span>
-              , you might also like…
-            </h2>
-            <div className="flex gap-4 overflow-x-auto no-scrollbar py-1">
+            <p className="text-xs uppercase tracking-widest font-bold mb-4 pb-2 border-b"
+              style={{ color: 'rgba(255,255,255,0.35)', borderColor: '#2c3440', fontFamily: 'Source Sans 3, sans-serif' }}>
+              More Like This
+            </p>
+            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
               {similar.map((m) => (
-                <button
-                  key={m.tmdb_id}
-                  onClick={() => navigate(buildRoute.movieDetail(m.tmdb_id))}
-                  className="flex-shrink-0 w-36 text-left group"
-                >
-                  {/* Poster */}
-                  <div className="relative w-36 h-52 rounded-lg overflow-hidden mb-2 shadow-md bg-c-input">
-                    {m.poster_path ? (
-                      <img
-                        src={m.poster_path}
-                        alt={m.title}
-                        className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center p-3">
-                        <span className="text-c-text4 text-xs text-center leading-tight">{m.title}</span>
-                      </div>
-                    )}
+                <button key={m.tmdb_id} onClick={() => navigate(buildRoute.movieDetail(m.tmdb_id))} className="flex-shrink-0 w-24 text-left group">
+                  <div className="relative w-24 h-36 rounded overflow-hidden mb-1" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                    {m.poster_path
+                      ? <img src={m.poster_path} alt={m.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" loading="lazy" />
+                      : <div className="w-full h-full flex items-center justify-center p-1" style={{ backgroundColor: '#1c2028' }}><span className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.2)' }}>{m.title}</span></div>
+                    }
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ boxShadow: 'inset 0 0 0 2px #00e054', borderRadius: '4px' }} />
                   </div>
-                  {/* Title + score */}
-                  <p className="text-c-text2 text-xs font-semibold leading-tight line-clamp-2 mb-0.5 group-hover:text-c-text transition-colors">
+                  <p className="text-xs leading-tight line-clamp-2 group-hover:text-white transition-colors" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Lato, sans-serif' }}>
                     {m.title}
                   </p>
-                  {m.vote_average > 0 && (
-                    <p className="text-c-text3 text-xs">
-                      {Math.round(m.vote_average * 10)}%
-                    </p>
-                  )}
                 </button>
               ))}
             </div>
           </section>
         )}
+
       </div>
 
       {/* ─── TRAILER MODAL ─── */}
       {showTrailer && trailerKey && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
-          onClick={closeTrailer}
-        >
-          <div
-            className="relative w-full max-w-4xl mx-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Close button */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm" style={{ backgroundColor: 'rgba(0,0,0,0.9)' }} onClick={closeTrailer}>
+          <div className="relative w-full max-w-4xl mx-4" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={closeTrailer}
-              className="absolute -top-10 right-0 text-white/70 hover:text-white text-sm flex items-center gap-1.5 transition-colors"
+              className="absolute -top-10 right-0 text-sm flex items-center gap-1.5 transition-colors"
+              style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Lato, sans-serif' }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.5)')}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <line x1="1" y1="1" x2="13" y2="13" />
-                <line x1="13" y1="1" x2="1" y2="13" />
+                <line x1="1" y1="1" x2="13" y2="13" /><line x1="13" y1="1" x2="1" y2="13" />
               </svg>
               Close (Esc)
             </button>
-
-            {/* 16:9 iframe wrapper */}
             <div className="relative w-full rounded-xl overflow-hidden shadow-2xl" style={{ paddingTop: '56.25%' }}>
               <iframe
                 className="absolute inset-0 w-full h-full"
