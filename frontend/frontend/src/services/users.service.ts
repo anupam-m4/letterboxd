@@ -55,9 +55,14 @@ const getWatched = async (username: string, page = 1): Promise<{ movies: Watched
   return response.data;
 };
 
-const searchUsers = async (query: string): Promise<{ users: Pick<User, 'id' | 'username' | 'bio' | 'avatar_url'>[] }> => {
+const searchUsers = async (query: string): Promise<{ users: (Pick<User, 'id' | 'username' | 'bio' | 'avatar_url'> & { is_following: boolean })[] }> => {
   const response = await api.get('/users/search', { params: { q: query } });
   return response.data;
 };
 
-export const usersService = { getProfile, getReviews, getWatchlist, getWatched, updateProfile, searchUsers, follow, unfollow, addToWatchlist, removeFromWatchlist, markWatched, unmarkWatched };
+const getMyFollowing = async (): Promise<{ following: string[] }> => {
+  const response = await api.get('/users/me/following');
+  return response.data;
+};
+
+export const usersService = { getProfile, getReviews, getWatchlist, getWatched, updateProfile, searchUsers, getMyFollowing, follow, unfollow, addToWatchlist, removeFromWatchlist, markWatched, unmarkWatched };

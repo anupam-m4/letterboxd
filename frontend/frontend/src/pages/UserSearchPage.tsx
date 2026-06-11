@@ -8,10 +8,47 @@ import Navbar from '../components/ui/Navbar';
 import useDebounce from '../hooks/useDebounce';
 import { buildRoute } from '../constants/routes';
 
-type SearchUser = Pick<User, 'id' | 'username' | 'bio' | 'avatar_url'>;
+type SearchUser = Pick<User, 'id' | 'username' | 'bio' | 'avatar_url'> & { is_following: boolean };
+
+const FollowButton = ({
+  username, isFollowing, onToggle,
+}: { username: string; isFollowing: boolean; onToggle: (u: string) => void }) => {
+  const [hovered, setHovered] = useState(false);
+
+  const label    = isFollowing ? (hovered ? 'Unfollow' : '✓ Following') : '+ Follow';
+  const bg       = isFollowing ? (hovered ? '#3d1010' : '#1a2e1a')      : '#00e054';
+  const color    = isFollowing ? (hovered ? '#f87171' : '#00e054')      : '#000';
+  const border   = isFollowing ? (hovered ? '#f87171' : '#00e054')      : '#00e054';
+
+  return (
+    <button
+      onClick={() => onToggle(username)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        flexShrink: 0,
+        padding: '5px 14px',
+        borderRadius: '4px',
+        fontSize: '11px',
+        fontFamily: 'Lato, sans-serif',
+        fontWeight: 700,
+        letterSpacing: '0.06em',
+        textTransform: 'uppercase',
+        cursor: 'pointer',
+        border: `1px solid ${border}`,
+        backgroundColor: bg,
+        color,
+        minWidth: '90px',
+        transition: 'all 0.15s',
+      }}
+    >
+      {label}
+    </button>
+  );
+};
 
 const UserSearchPage = () => {
-  const { state: authState } = useAuth();
+  const { state: authState, data: authData } = useAuth();
   const navigate = useNavigate();
 
   const [query, setQuery] = useState('');
@@ -21,14 +58,33 @@ const UserSearchPage = () => {
 
   const debouncedQuery = useDebounce(query, 350);
 
+  // Seed the followed Set from the real DB on mount — source of truth
+  useEffect(() => {
+    if (!authState.isAuthenticated) return;
+    usersService.getMyFollowing()
+      .then(res => setFollowed(new Set(res.following)))
+      .catch(() => { /* not critical — 409 self-correction handles edge cases */ });
+  }, [authState.isAuthenticated]);
+
   useEffect(() => {
     if (!debouncedQuery.trim()) { setUsers([]); return; }
+    if (authState.isLoading) return;
     setLoading(true);
     usersService.searchUsers(debouncedQuery)
-      .then((data) => setUsers(data.users))
+      .then((res) => {
+        const currentUsername = authData.user?.username?.toLowerCase();
+        const filtered = res.users.filter(u => u.username.toLowerCase() !== currentUsername);
+        setUsers(filtered);
+        // Merge is_following from search results into the followed Set
+        setFollowed(prev => {
+          const next = new Set(prev);
+          filtered.forEach(u => { if (u.is_following) next.add(u.username); });
+          return next;
+        });
+      })
       .catch(() => setUsers([]))
       .finally(() => setLoading(false));
-  }, [debouncedQuery]);
+  }, [debouncedQuery, authState.isLoading]);
 
   const handleFollow = async (username: string) => {
     if (!authState.isAuthenticated) { navigate('/login'); return; }
@@ -40,7 +96,18 @@ const UserSearchPage = () => {
         await usersService.follow(username);
         setFollowed((prev) => new Set(prev).add(username));
       }
-    } catch { message.error('Something went wrong'); }
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 409) {
+        // Backend says already following — fix state silently
+        setFollowed((prev) => new Set(prev).add(username));
+      } else if (status === 404) {
+        // Backend says not following — fix state silently
+        setFollowed((prev) => { const next = new Set(prev); next.delete(username); return next; });
+      } else {
+        message.error('Something went wrong');
+      }
+    }
   };
 
   return (
@@ -93,21 +160,11 @@ const UserSearchPage = () => {
                 </div>
 
                 {authState.isAuthenticated && (
-                  <button
-                    onClick={() => handleFollow(user.username)}
-                    style={!followed.has(user.username) ? {
-                      backgroundColor: 'var(--c-green-muted)',
-                      borderColor: 'var(--c-green-ring)',
-                      color: 'var(--c-green)',
-                    } : undefined}
-                    className={`px-3 py-1.5 rounded text-xs font-medium transition-colors flex-shrink-0 border ${
-                      followed.has(user.username)
-                        ? 'bg-c-surface text-c-text2 hover:text-red-500 border-c-border'
-                        : 'border-c-green text-c-green'
-                    }`}
-                  >
-                    {followed.has(user.username) ? 'Following' : 'Follow'}
-                  </button>
+                  <FollowButton
+                    username={user.username}
+                    isFollowing={followed.has(user.username)}
+                    onToggle={handleFollow}
+                  />
                 )}
               </div>
             ))}
