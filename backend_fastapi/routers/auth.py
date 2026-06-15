@@ -22,13 +22,13 @@ def _user_out(u: User) -> dict:
 
 @router.post("/register", status_code=201)
 def register(body: RegisterRequest, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.email == body.email).first():
+    if db.query(User).filter(User.email.ilike(body.email)).first():
         raise HTTPException(409, "Email is already in use")
-    if db.query(User).filter(User.username == body.username).first():
+    if db.query(User).filter(User.username.ilike(body.username)).first():
         raise HTTPException(409, "Username is already taken")
     user = User(
         username=body.username,
-        email=body.email,
+        email=body.email.lower(),
         password_hash=hash_password(body.password),
     )
     db.add(user)
@@ -39,7 +39,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
 
 @router.post("/login")
 def login(body: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == body.email).first()
+    user = db.query(User).filter(User.email.ilike(body.email)).first()
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(401, "Invalid email or password")
     return {"user": _user_out(user), "token": sign_token(user.id, user.username)}

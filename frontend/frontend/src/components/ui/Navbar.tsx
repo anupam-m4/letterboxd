@@ -6,13 +6,6 @@ import SignUpModal from './SignUpModal';
 import QuickLogModal from './QuickLogModal';
 
 /* ─── icons ─────────────────────────────────────────────────────── */
-const LetterboxdMark = () => (
-  <svg width="32" height="20" viewBox="0 0 48 30" aria-hidden="true">
-    <circle cx="10" cy="15" r="10" fill="#FF8000" />
-    <circle cx="24" cy="15" r="10" fill="#00E054" />
-    <circle cx="38" cy="15" r="10" fill="#40BCF4" />
-  </svg>
-);
 
 const SearchIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
@@ -182,7 +175,7 @@ const Navbar = () => {
 
           {/* ── Logo ─────────────────────────────────── */}
           <Link to={ROUTES.HOME} style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', flexShrink: 0, marginRight: '8px' }}>
-            <LetterboxdMark />
+            <img src="/letterboxd-logo-v-neg-rgb.svg" alt="Letterbox" style={{ height: '28px', width: 'auto' }} />
             <span style={{ color: '#fff', fontFamily: 'Montserrat, sans-serif', fontWeight: 700, fontSize: '15px', letterSpacing: '0.02em' }}>
               Letterboxd
             </span>
